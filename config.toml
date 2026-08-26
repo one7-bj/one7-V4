@@ -1,0 +1,13 @@
+[theme]
+primaryColor = "#0056A6" # Bleu profond One7
+backgroundColor = "#F8FAFC" # Fond gris très clair
+secondaryBackgroundColor = "#FFFFFF" # Fond des cartes/blocs
+textColor = "#1E293B" # Texte gris foncé pro
+font = "sans serif"
+
+[server]
+maxUploadSize = 500 # Pour uploader gros fichiers Excel
+enableCORS = false
+
+[browser]
+gatherUsageStats = false
