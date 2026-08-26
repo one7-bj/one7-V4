@@ -49,10 +49,15 @@ def signup_user(nom, email, password, pays, plan):
         # 2. CRÉER CABINET
         cab_id = str(uuid.uuid4())
         supabase.table("cabinets").insert({
-            "id": cab_id, "nom": nom, "pays": pays, "plan": plan,
-            "limite_clients": plans[plan]["clients"], 
-            "limite_credits": plans[plan]["credits"]
-        }).execute()
+    "id": cab_id, 
+    "nom": nom, 
+    "pays": pays, 
+    "plan": plan,
+    "statut": "actif", # <- ajoute ça aussi
+    "limite_clients": plans[plan]["clients"],
+    "limite_credits": plans[plan]["credits"],
+    "prix": plans[plan]["prix"] # <- AJOUTE CETTE LIGNE
+}).execute()
         
         # 3. CRÉER PROFIL ENSUITE
         supabase.table("profiles").insert({
