@@ -145,14 +145,15 @@ with col3:
 def page_login_signup():
     tab1, tab2 = st.tabs(["Connexion", "Créer un compte"])
     with tab1:
-        email = st.text_input("Email", key="login_email")
-        password = st.text_input("Mot de passe", type="password", key="login_password")
-        if st.button("Se connecter", type="primary", key="btn_login"):
-            res = login(email, password)
-            if res: st.session_state.user = res.user; st.rerun()
-            else: st.error("Identifiants incorrects")
+    email = st.text_input("Email", key="login_email")
+    password = st.text_input("Mot de passe", type="password", key="login_password")
+    if st.button("Se connecter", type="primary", key="btn_login"):
+        if login_user(email, password):
+            st.rerun()
+        else:
+            st.error("Identifiants incorrects")
 
-    with tab2:
+with tab2:
     nom = st.text_input("Nom du Cabinet", key="signup_nom")
     email = st.text_input("Email", key="signup_email")
     password = st.text_input("Mot de passe", type="password", key="signup_password")
