@@ -53,10 +53,11 @@ def signup_user(nom, email, password, pays, plan):
     "nom": nom, 
     "pays": pays, 
     "plan": plan,
-    "statut": "actif", # <- ajoute ça aussi
-    "limite_clients": plans[plan]["clients"],
+    "statut": "actif",
+    "limite_clients": plans[plan]["clients"], 
     "limite_credits": plans[plan]["credits"],
-    "prix": plans[plan]["prix"] # <- AJOUTE CETTE LIGNE
+    "prix": plans[plan]["prix"], # <- AJOUTE ÇA
+    "date_expiration": (datetime.now() + timedelta(days=90)).isoformat() # <- 90 jours promo
 }).execute()
         
         # 3. CRÉER PROFIL ENSUITE
