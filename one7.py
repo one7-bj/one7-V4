@@ -9,6 +9,12 @@ import fitz
 import uuid
 import time
 
+plans = {
+    "solo": {"clients": 20, "credits": 50, "prix": 2000, "devise": "FCFA"},
+    "starter": {"clients": 50, "credits": 100, "prix": 5000, "devise": "FCFA"},
+    "pro": {"clients": 200, "credits": 500, "prix": 10000, "devise": "FCFA"}
+}
+
 st.set_page_config(page_title="One7 Pro - TVA & AIB", page_icon="🧾", layout="wide")
 
 # 1. CONNEXION SECRETS
@@ -109,6 +115,27 @@ def sauver_factures_en_lot(liste_factures):
     if liste_factures: supabase.table('factures').insert(liste_factures).execute()
 
 # 5. PAGES
+st.markdown("## 🚀 OFFRE DE LANCEMENT - 3 PREMIERS MOIS")
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.markdown("### Solo")
+    st.markdown("**2000 FCFA/mois**")
+    st.write("20 clients")
+    st.write("50 crédits")
+
+with col2:
+    st.markdown("### Starter")
+    st.markdown("**5000 FCFA/mois**")
+    st.write("50 clients")
+    st.write("100 crédits")
+
+with col3:
+    st.markdown("### Pro")
+    st.markdown("**10000 FCFA/mois**")
+    st.write("200 clients")
+    st.write("500 crédits")
+  
 def page_login_signup():
     tab1, tab2 = st.tabs(["Connexion", "Créer un compte"])
     with tab1:
@@ -123,8 +150,11 @@ def page_login_signup():
         nom = st.text_input("Nom du Cabinet", key="signup_nom")
         email = st.text_input("Email", key="signup_email")
         password = st.text_input("Mot de passe", type="password", key="signup_password")
-        pays = st.selectbox("Pays", ["Bénin", "Togo", "Côte d'Ivoire"], key="signup_pays")
-        plan = st.selectbox("Pack", ["solo", "starter", "pro"], key="signup_plan")
+        pays = st.selectbox("Pays", ["Bénin", "Autres pays"], key="signup_pays")
+        plan = st.selectbox("Choisis ton Pack", ["solo", "starter", "pro"])
+st.success(f"**Tarif Promo 3 mois: {plans[plan]['prix']:,} {plans[plan]['devise']}/mois**")
+st.caption(f"Inclus: {plans[plan]['clients']} clients, {plans[plan]['credits']} crédits")
+st.caption("⚡ Après 3 mois : tarif normal s'appliquera")
         if st.button("Créer mon compte", key="btn_signup"):
             if signup_user(nom, email, password, pays, plan): st.success("Compte créé! Paiement simulé. Attends l'activation de l'admin.")
 
