@@ -148,7 +148,7 @@ def page_login_signup():
         email = st.text_input("Email", key="login_email")
         password = st.text_input("Mot de passe", type="password", key="login_password")
         if st.button("Se connecter", type="primary", key="btn_login"):
-        if login_user(email, password):
+            if login_user(email, password):
             st.rerun()
         else:
             st.error("Identifiants incorrects")
