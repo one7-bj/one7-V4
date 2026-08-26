@@ -29,30 +29,36 @@ st.markdown("""
 # 3. FONCTIONS FOND : MULTI-TENANT + CREDITS
 def signup_user(nom, email, password, pays, plan):
     try:
-        # 1. ÉTAPE 1 : ON CRÉE D'ABORD L'UTILISATEUR DANS AUTH
+        # 1. CRÉER USER DANS AUTH D'ABORD
         res_auth = supabase.auth.sign_up({"email": email, "password": password})
-        user = res_auth.user
-        if not user:
-            st.error(f"Erreur Auth: {res_auth}")
+        
+        if not res_auth.user:
+            st.error("Erreur création Auth. Vérifie l'email")
             return False
+            
+        user = res_auth.user
+        time.sleep(1) # <- ON ATTEND 1 SECONDE QUE SUPABASE CRÉE LE USER
 
-        # 2. ÉTAPE 2 : ENSUITE ON CRÉE LE CABINET
-        res_cab = supabase.table("cabinets").insert({
-            "nom": nom, "pays": pays, "plan": plan
+        # 2. CRÉER CABINET
+        cab_id = str(uuid.uuid4())
+        supabase.table("cabinets").insert({
+            "id": cab_id, "nom": nom, "pays": pays, "plan": plan,
+            "limite_clients": plans[plan]["clients"], 
+            "limite_credits": plans[plan]["credits"]
         }).execute()
-        cabinet_id = res_cab.data[0]['id']
-
-        # 3. ÉTAPE 3 : ENFIN ON CRÉE LE PROFIL AVEC LE BON ID
-        res_profil = supabase.table("profiles").insert({
-            "id": user.id, # <- Maintenant user.id existe vraiment
-            "cabinet_id": cabinet_id,
+        
+        # 3. CRÉER PROFIL ENSUITE
+        supabase.table("profiles").insert({
+            "id": user.id, 
+            "cabinet_id": cab_id, 
             "nom": nom,
-            "role": "cabinet",
+            "role": "cabinet", 
             "plan": plan,
-            "credits_restants": 1000 if plan == "starter" else 99999
+            "credits_restants": plans[plan]["credits"]
         }).execute()
-
+        
         return True
+        
     except Exception as e:
         st.error(f"Erreur: {e}")
         return False
