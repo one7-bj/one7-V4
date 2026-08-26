@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from supabase import create_client, Client
 import fitz
 import uuid
+import time
 
 st.set_page_config(page_title="One7 Pro - TVA & AIB", page_icon="🧾", layout="wide")
 
