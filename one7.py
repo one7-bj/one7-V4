@@ -160,7 +160,7 @@ def page_login_signup():
 st.success(f"**Tarif Promo 3 mois: {plans[plan]['prix']:,} {plans[plan]['devise']}/mois**")
 st.caption(f"Inclus: {plans[plan]['clients']} clients, {plans[plan]['credits']} crédits")
 st.caption("⚡ Après 3 mois : tarif normal s'appliquera")
-        if st.button("Créer mon compte", key="btn_signup"):
+if st.button("Créer mon compte", key="btn_signup"):
             if signup_user(nom, email, password, pays, plan): st.success("Compte créé! Paiement simulé. Attends l'activation de l'admin.")
 
 def page_app(cab_data):
