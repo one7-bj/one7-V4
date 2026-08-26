@@ -27,20 +27,35 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 3. FONCTIONS FOND : MULTI-TENANT + CREDITS
-def signup_cabinet(nom, email, password, pays, plan):
-    plans = {"solo": {"clients": 10, "credits": 100}, "starter": {"clients": 50, "credits": 1000}, "pro": {"clients": 9999, "credits": 99999}}
+def signup_user(nom, email, password, pays, plan):
     try:
-        res = supabase.auth.sign_up({"email": email, "password": password})
-        if res.user:
-            cab_id = str(uuid.uuid4())
-            supabase.table("cabinets").insert({"id": cab_id, "nom": nom, "pays": pays, "plan": plan, "limite_clients": plans[plan]["clients"], "credits_restants": plans[plan]["credits"], "abonnement_actif": False}).execute()
-            supabase.table("profiles").insert({"id": res.user.id, "cabinet_id": cab_id, "role": "admin"}).execute()
-            return True
+        # 1. ÉTAPE 1 : ON CRÉE D'ABORD L'UTILISATEUR DANS AUTH
+        res_auth = supabase.auth.sign_up({"email": email, "password": password})
+        user = res_auth.user
+        if not user:
+            st.error(f"Erreur Auth: {res_auth}")
+            return False
+
+        # 2. ÉTAPE 2 : ENSUITE ON CRÉE LE CABINET
+        res_cab = supabase.table("cabinets").insert({
+            "nom": nom, "pays": pays, "plan": plan
+        }).execute()
+        cabinet_id = res_cab.data[0]['id']
+
+        # 3. ÉTAPE 3 : ENFIN ON CRÉE LE PROFIL AVEC LE BON ID
+        res_profil = supabase.table("profiles").insert({
+            "id": user.id, # <- Maintenant user.id existe vraiment
+            "cabinet_id": cabinet_id,
+            "nom": nom,
+            "role": "cabinet",
+            "plan": plan,
+            "credits_restants": 1000 if plan == "starter" else 99999
+        }).execute()
+
+        return True
     except Exception as e:
         st.error(f"Erreur: {e}")
         return False
-    return False
-
 def login(email, password):
     try: return supabase.auth.sign_in_with_password({"email": email, "password": password})
     except: return None
