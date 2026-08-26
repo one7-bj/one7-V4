@@ -145,24 +145,24 @@ with col3:
 def page_login_signup():
     tab1, tab2 = st.tabs(["Connexion", "Créer un compte"])
     with tab1:
-    email = st.text_input("Email", key="login_email")
-    password = st.text_input("Mot de passe", type="password", key="login_password")
-    if st.button("Se connecter", type="primary", key="btn_login"):
+        email = st.text_input("Email", key="login_email")
+        password = st.text_input("Mot de passe", type="password", key="login_password")
+        if st.button("Se connecter", type="primary", key="btn_login"):
         if login_user(email, password):
             st.rerun()
         else:
             st.error("Identifiants incorrects")
 
-with tab2:
-    nom = st.text_input("Nom du Cabinet", key="signup_nom")
-    email = st.text_input("Email", key="signup_email")
-    password = st.text_input("Mot de passe", type="password", key="signup_password")
-    pays = st.selectbox("Pays", ["Bénin", "Autres pays"], key="signup_pays")
-    plan = st.selectbox("Choisis ton Pack", ["solo", "starter", "pro"])
-    st.success(f"**Tarif Promo 3 mois: {plans[plan]['prix']:,} {plans[plan]['devise']}/mois**")
-    st.caption(f"Inclus: {plans[plan]['clients']} clients, {plans[plan]['credits']} crédits")
-    st.caption("⚡ Après 3 mois : tarif normal s'appliquera")
-    if st.button("Créer mon compte", key="btn_signup"):
+    with tab2:
+        nom = st.text_input("Nom du Cabinet", key="signup_nom")
+        email = st.text_input("Email", key="signup_email")
+        password = st.text_input("Mot de passe", type="password", key="signup_password")
+        pays = st.selectbox("Pays", ["Bénin", "Autres pays"], key="signup_pays")
+        plan = st.selectbox("Choisis ton Pack", ["solo", "starter", "pro"])
+        st.success(f"**Tarif Promo 3 mois: {plans[plan]['prix']:,} {plans[plan]['devise']}/mois**")
+        st.caption(f"Inclus: {plans[plan]['clients']} clients, {plans[plan]['credits']} crédits")
+        st.caption("⚡ Après 3 mois : tarif normal s'appliquera")
+        if st.button("Créer mon compte", key="btn_signup"):
         if signup_user(nom, email, password, pays, plan): 
             st.success("Compte créé! Paiement simulé. Attends l'activation de l'admin.")
             
