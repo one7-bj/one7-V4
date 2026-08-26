@@ -133,7 +133,7 @@ if page == "📊 Traitement Factures":
 
     if st.button("🚀 Lancer le traitement", type="primary"):
         if fichiers:
-            resultats_detail, etat_tva, etat_aib = [], []
+            resultats_detail, etat_tva, etat_aib = [], [], []
             progress = st.progress(0)
 
             for i, fichier in enumerate(fichiers):
