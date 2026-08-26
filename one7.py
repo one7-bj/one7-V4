@@ -119,7 +119,7 @@ def page_login_signup():
         pays = st.selectbox("Pays", ["Bénin", "Togo", "Côte d'Ivoire"], key="signup_pays")
         plan = st.selectbox("Pack", ["solo", "starter", "pro"], key="signup_plan")
         if st.button("Créer mon compte", key="btn_signup"):
-            if signup_cabinet(nom, email, password, pays, plan): st.success("Compte créé! Paiement simulé. Attends l'activation de l'admin.")
+            if signup_user(nom, email, password, pays, plan): st.success("Compte créé! Paiement simulé. Attends l'activation de l'admin.")
 
 def page_app(cab_data):
     cab = cab_data["cabinet"]
