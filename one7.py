@@ -157,10 +157,10 @@ def page_login_signup():
         password = st.text_input("Mot de passe", type="password", key="signup_password")
         pays = st.selectbox("Pays", ["Bénin", "Autres pays"], key="signup_pays")
         plan = st.selectbox("Choisis ton Pack", ["solo", "starter", "pro"])
-st.success(f"**Tarif Promo 3 mois: {plans[plan]['prix']:,} {plans[plan]['devise']}/mois**")
-st.caption(f"Inclus: {plans[plan]['clients']} clients, {plans[plan]['credits']} crédits")
-st.caption("⚡ Après 3 mois : tarif normal s'appliquera")
-if st.button("Créer mon compte", key="btn_signup"):
+            st.success(f"**Tarif Promo 3 mois: {plans[plan]['prix']:,} {plans[plan]['devise']}/mois**")
+            st.caption(f"Inclus: {plans[plan]['clients']} clients, {plans[plan]['credits']} crédits")
+            st.caption("⚡ Après 3 mois : tarif normal s'appliquera")
+            if st.button("Créer mon compte", key="btn_signup"):
             if signup_user(nom, email, password, pays, plan): st.success("Compte créé! Paiement simulé. Attends l'activation de l'admin.")
 
 def page_app(cab_data):
