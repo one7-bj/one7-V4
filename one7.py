@@ -18,9 +18,9 @@ model = genai.GenerativeModel('gemini-1.5-flash')
 # 2. CSS GLOBAL : BLEU PRO #0056A6 + JAUNE #FFC107
 st.markdown("""
 <style>
-   .stButton>button[data-testid="baseButton-primary"] {background-color: #0056A6; color: white; border-radius: 8px; border: none; font-weight: 600;}
-   .stButton>button[data-testid="baseButton-primary"]:hover {background-color: #004080;}
-   .stButton>button[data-testid="baseButton-secondary"] {background-color: #FFC107; color: #1E293B; border-radius: 8px; border: none; font-weight: 700;}
+  .stButton>button[data-testid="baseButton-primary"] {background-color: #0056A6; color: white; border-radius: 8px; border: none; font-weight: 600;}
+  .stButton>button[data-testid="baseButton-primary"]:hover {background-color: #004080;}
+  .stButton>button[data-testid="baseButton-secondary"] {background-color: #FFC107; color: #1E293B; border-radius: 8px; border: none; font-weight: 700;}
     [data-testid="stSidebar"] {background-color: #0056A6;}
     [data-testid="stSidebar"] * {color: white;}
 </style>
@@ -36,7 +36,9 @@ def signup_cabinet(nom, email, password, pays, plan):
             supabase.table("cabinets").insert({"id": cab_id, "nom": nom, "pays": pays, "plan": plan, "limite_clients": plans[plan]["clients"], "credits_restants": plans[plan]["credits"], "abonnement_actif": False}).execute()
             supabase.table("profiles").insert({"id": res.user.id, "cabinet_id": cab_id, "role": "admin"}).execute()
             return True
-    except: return False
+    except Exception as e:
+        st.error(f"Erreur: {e}")
+        return False
     return False
 
 def login(email, password):
@@ -57,7 +59,7 @@ def use_credits(cab_id, nb):
         return True
     return False
 
-# 4. LOGIQUE METIER : TON CODE TVA/AIB INCHANGÉ
+# 4. LOGIQUE METIER : TON CODE TVA/AIB
 EXONERATIONS_TVA = ["produit pharmaceutique", "livre", "produit agricole non transformé", "éducation", "santé", "exportation", "location immobilière habitation"]
 TAUX_AIB = {"biens": 0.01, "travaux": 0.03, "prestation": 0.03, "prestation_intel": 0.05}
 
@@ -88,19 +90,20 @@ def sauver_factures_en_lot(liste_factures):
 def page_login_signup():
     tab1, tab2 = st.tabs(["Connexion", "Créer un compte"])
     with tab1:
-        email = st.text_input("Email")
-        password = st.text_input("Mot de passe", type="password")
-        if st.button("Se connecter", type="primary"):
+        email = st.text_input("Email", key="login_email")
+        password = st.text_input("Mot de passe", type="password", key="login_password")
+        if st.button("Se connecter", type="primary", key="btn_login"):
             res = login(email, password)
             if res: st.session_state.user = res.user; st.rerun()
             else: st.error("Identifiants incorrects")
+
     with tab2:
-        nom = st.text_input("Nom du Cabinet")
-        email = st.text_input("Email")
-        password = st.text_input("Mot de passe", type="password")
-        pays = st.selectbox("Pays", ["Bénin", "Togo", "Côte d'Ivoire"])
-        plan = st.selectbox("Pack", ["solo", "starter", "pro"])
-        if st.button("Créer mon compte"):
+        nom = st.text_input("Nom du Cabinet", key="signup_nom")
+        email = st.text_input("Email", key="signup_email")
+        password = st.text_input("Mot de passe", type="password", key="signup_password")
+        pays = st.selectbox("Pays", ["Bénin", "Togo", "Côte d'Ivoire"], key="signup_pays")
+        plan = st.selectbox("Pack", ["solo", "starter", "pro"], key="signup_plan")
+        if st.button("Créer mon compte", key="btn_signup"):
             if signup_cabinet(nom, email, password, pays, plan): st.success("Compte créé! Paiement simulé. Attends l'activation de l'admin.")
 
 def page_app(cab_data):
@@ -109,22 +112,22 @@ def page_app(cab_data):
         st.title("🧾 One7 Pro")
         st.caption(f"Plan: {cab['plan']} | {cab['pays']}")
         st.metric("Crédits Restants", cab["credits_restants"])
-        if st.button("Se déconnecter"): supabase.auth.sign_out(); del st.session_state.user; st.rerun()
-        menu = st.radio("Menu", ["📊 Traitement Factures", "📈 Dashboard", "👔 Admin"])
+        if st.button("Se déconnecter", key="btn_logout"): supabase.auth.sign_out(); del st.session_state.user; st.rerun()
+        menu = st.radio("Menu", ["📊 Traitement Factures", "📈 Dashboard", "👔 Admin"], key="menu_radio")
 
     if not cab["abonnement_actif"]:
         st.warning("Votre abonnement n'est pas actif. Contactez l'admin."); return
 
     if menu == "📊 Traitement Factures":
         st.title("🧾 Traitement TVA & AIB")
-        SEUIL_AIB = st.checkbox("Appliquer seuil 10 000 FCFA", value=False)
-        fichiers = st.file_uploader("Charge tes factures PDF", type=["pdf"], accept_multiple_files=True)
+        SEUIL_AIB = st.checkbox("Appliquer seuil 10 000 FCFA", value=False, key="check_seuil")
+        fichiers = st.file_uploader("Charge tes factures PDF", type=["pdf"], accept_multiple_files=True, key="uploader_factures")
 
-        if st.button("🚀 Lancer le traitement", type="primary"):
+        if st.button("🚀 Lancer le traitement", type="primary", key="btn_traiter"):
             if not fichiers: st.warning("Ajoute des fichiers"); return
             if not use_credits(cab["id"], len(fichiers)): st.error(f"Crédits insuffisants. Il faut {len(fichiers)}"); st.rerun(); return
 
-            resultats_detail, etat_tva, etat_aib, factures_a_sauver = [], []
+            resultats_detail, etat_tva, etat_aib, factures_a_sauver = [], [], [], []
             progress = st.progress(0)
             for i, fichier in enumerate(fichiers):
                 file_bytes = fichier.read()
@@ -146,8 +149,8 @@ def page_app(cab_data):
             st.success(f"{len(fichiers)} factures traitées et sauvées! -{len(fichiers)} crédits")
             tab1, tab2, tab3 = st.tabs(["📊 Détail", "📑 Etat TVA", "📑 Etat AIB"])
             with tab1: st.dataframe(pd.DataFrame(resultats_detail), use_container_width=True, hide_index=True)
-            with tab2: st.dataframe(pd.DataFrame(etat_tva), use_container_width=True, hide_index=True); st.download_button("📥 Etat TVA CSV", pd.DataFrame(etat_tva).to_csv(index=False), f"ETAT_TVA_{datetime.now().strftime('%Y%m')}.csv")
-            with tab3: st.dataframe(pd.DataFrame(etat_aib), use_container_width=True, hide_index=True); st.download_button("📥 Etat AIB CSV", pd.DataFrame(etat_aib).to_csv(index=False), f"ETAT_AIB_{datetime.now().strftime('%Y%m')}.csv")
+            with tab2: st.dataframe(pd.DataFrame(etat_tva), use_container_width=True, hide_index=True); st.download_button("📥 Etat TVA CSV", pd.DataFrame(etat_tva).to_csv(index=False), f"ETAT_TVA_{datetime.now().strftime('%Y%m')}.csv", key="dl_tva")
+            with tab3: st.dataframe(pd.DataFrame(etat_aib), use_container_width=True, hide_index=True); st.download_button("📥 Etat AIB CSV", pd.DataFrame(etat_aib).to_csv(index=False), f"ETAT_AIB_{datetime.now().strftime('%Y%m')}.csv", key="dl_aib")
 
     elif menu == "👔 Admin" and cab_data["profile"]["role"] == "admin":
         st.title("Panel Admin")
@@ -155,7 +158,7 @@ def page_app(cab_data):
         for c in cabinets.data:
             st.write(f"{c['nom']} - Crédits: {c['credits_restants']} - Actif: {c['abonnement_actif']}")
             if not c['abonnement_actif']:
-                if st.button(f"Activer {c['nom']}", key=c['id']):
+                if st.button(f"Activer {c['nom']}", key=f"activate_{c['id']}"):
                     supabase.table("cabinets").update({"abonnement_actif": True}).eq("id", c['id']).execute(); st.rerun()
 
 # 6. ROUTEUR
