@@ -149,9 +149,9 @@ def page_login_signup():
         password = st.text_input("Mot de passe", type="password", key="login_password")
         if st.button("Se connecter", type="primary", key="btn_login"):
             if login_user(email, password):
-            st.rerun()
-        else:
-            st.error("Identifiants incorrects")
+                st.rerun()
+            else:
+                st.error("Identifiants incorrects")
 
     with tab2:
         nom = st.text_input("Nom du Cabinet", key="signup_nom")
