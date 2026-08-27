@@ -93,8 +93,17 @@ def login(email, password):
 
 def get_cabinet_data():
     user = supabase.auth.get_user()
-    if not user.user: return None
+    
+    # CORRECTION ICI
+    if not user or not user.user: 
+        return None
+        
     profile = supabase.table("profiles").select("cabinet_id, role").eq("id", user.user.id).single().execute()
+    
+    # Sécurité au cas où le profil n'existe pas
+    if not profile.data:
+        return None
+        
     cabinet = supabase.table("cabinets").select("*").eq("id", profile.data["cabinet_id"]).single().execute()
     return {"user": user.user, "profile": profile.data, "cabinet": cabinet.data}
 
