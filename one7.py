@@ -36,38 +36,49 @@ st.markdown("""
 # 3. FONCTIONS FOND : MULTI-TENANT + CREDITS
 def signup_user(nom, email, password, pays, plan):
     try:
-        # 1. CRÉER USER DANS AUTH D'ABORD
+        # 1. CRÉER USER DANS AUTH
         res_auth = supabase.auth.sign_up({"email": email, "password": password})
         
         if not res_auth.user:
-            st.error("Erreur création Auth. Vérifie l'email")
+            st.error("Erreur création Auth. Vérifie si l'email n'existe pas déjà")
             return False
             
         user = res_auth.user
-        time.sleep(1) # <- ON ATTEND 1 SECONDE QUE SUPABASE CRÉE LE USER
+        
+        # 2. ON ATTEND QUE SUPABASE PROPAGUE LE USER - 2 FOIS
+        for i in range(3):
+            time.sleep(1)
+            check_user = supabase.auth.get_user()
+            if check_user.user:
+                break
+        
+        user_id = user.id # On prend l'ID direct de la réponse
 
-        # 2. CRÉER CABINET
+        # 3. CRÉER CABINET D'ABORD
         cab_id = str(uuid.uuid4())
         supabase.table("cabinets").insert({
-    "id": cab_id, 
-    "nom": nom, 
-    "pays": pays, 
-    "plan": plan,
-    "statut": "actif",
-    "limite_clients": plans[plan]["clients"], 
-    "limite_credits": plans[plan]["credits"],
-    "prix": plans[plan]["prix"], # <- AJOUTE ÇA
-    "date_expiration": (datetime.now() + timedelta(days=90)).isoformat() # <- 90 jours promo
-}).execute()
+            "id": cab_id, 
+            "nom": nom, 
+            "email": email,
+            "pays": pays, 
+            "pack": plan,
+            "statut": "actif",
+            "abonnement_act": True,
+            "limite_clients": plans[plan]["clients"], 
+            "limite_credits": plans[plan]["credits"],
+            "credits_restants": plans[plan]["credits"],
+            "prix": plans[plan]["prix"],
+            "date_creation": datetime.now().isoformat(),
+            "date_expiration": (datetime.now() + timedelta(days=90)).isoformat()
+        }).execute()
         
-        # 3. CRÉER PROFIL ENSUITE
+        # 4. CRÉER PROFILE EN DERNIER
         supabase.table("profiles").insert({
-            "id": user.id, 
+            "id": user_id, # <- L'ID DE AUTH.USERS
             "cabinet_id": cab_id, 
             "nom": nom,
             "role": "cabinet", 
-            "plan": plan,
-            "credits_restants": plans[plan]["credits"]
+            "plan": plan
         }).execute()
         
         return True
@@ -75,6 +86,7 @@ def signup_user(nom, email, password, pays, plan):
     except Exception as e:
         st.error(f"Erreur: {e}")
         return False
+        
 def login(email, password):
     try: return supabase.auth.sign_in_with_password({"email": email, "password": password})
     except: return None
