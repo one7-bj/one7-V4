@@ -63,7 +63,7 @@ def signup_user(nom, email, password, pays, plan):
             "pays": pays, 
             "pack": plan,
             "statut": "actif",
-            "abonnement_act": True,
+            "abonnement_actif": True,
             "limite_clients": plans[plan]["clients"], 
             "limite_credits": plans[plan]["credits"],
             "credits_restants": plans[plan]["credits"],
