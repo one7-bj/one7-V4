@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 from supabase import create_client, Client
 import fitz
 import uuid
-import time
 
 # --- CONFIGURATION INITIALE ---
 plans = {
@@ -22,7 +21,7 @@ st.set_page_config(page_title="One7 Pro - TVA & AIB", page_icon="🧾", layout="
 try:
     supabase: Client = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    model = genai.GenerativeModel('gemini-3.6-flash')
+    model = genai.GenerativeModel('gemini-2.0-flash') # Corrigé: gemini-3.6 n'existe pas encore
 except Exception as e:
     st.error(f"Erreur de configuration des secrets : {e}")
     st.stop()
@@ -30,9 +29,9 @@ except Exception as e:
 # --- CSS GLOBAL ---
 st.markdown("""
 <style>
- .stButton>button[data-testid="baseButton-primary"] {background-color: #0056A6; color: white; border-radius: 8px; border: none; font-weight: 600;}
- .stButton>button[data-testid="baseButton-primary"]:hover {background-color: #004080;}
- .stButton>button[data-testid="baseButton-secondary"] {background-color: #FFC107; color: #1E293B; border-radius: 8px; border: none; font-weight: 700;}
+.stButton>button[data-testid="baseButton-primary"] {background-color: #0056A6; color: white; border-radius: 8px; border: none; font-weight: 600;}
+.stButton>button[data-testid="baseButton-primary"]:hover {background-color: #004080;}
+.stButton>button[data-testid="baseButton-secondary"] {background-color: #FFC107; color: #1E293B; border-radius: 8px; border: none; font-weight: 700;}
     [data-testid="stSidebar"] {background-color: #0056A6;}
     [data-testid="stSidebar"] * {color: white;}
 </style>
@@ -64,7 +63,6 @@ def logout():
     st.rerun()
 
 def ensure_profile_and_cabinet(user_id, email):
-    """Vérifie ou crée automatiquement un cabinet pour l'utilisateur"""
     try:
         profile_res = supabase.table("profiles").select("*").eq("id", user_id).execute()
         if profile_res.data and len(profile_res.data) > 0:
@@ -72,39 +70,23 @@ def ensure_profile_and_cabinet(user_id, email):
     except Exception as e:
         st.warning(f"Erreur lecture profil: {e}")
 
-    # Création secours si profil introuvable
     st.info("Configuration du cabinet en cours...")
     cab_id = str(uuid.uuid4())
     pack_default = "solo"
-    
+
     try:
         supabase.table("cabinets").insert({
-            "id": cab_id,
-            "nom": f"Cabinet {email.split('@')[0].title()}",
-            "email": email,
-            "pays": "Bénin",
-            "pack": pack_default,
-            "plan": pack_default,
-            "statut": "actif",
-            "abonnement_actif": True,
-            "limite_clients": plans[pack_default]["clients"],
-            "limite_credits": plans[pack_default]["credits"],
-            "credits_restants": plans[pack_default]["credits"],
-            "prix": plans[pack_default]["prix"],
-            "date_creation": datetime.now().isoformat(),
-            "date_expiration": (datetime.now() + timedelta(days=90)).isoformat()
+            "id": cab_id, "nom": f"Cabinet {email.split('@')[0].title()}", "email": email, "pays": "Bénin", "pack": pack_default,
+            "statut": "actif", "abonnement_actif": True, "limite_clients": plans[pack_default]["clients"], "limite_credits": plans[pack_default]["credits"],
+            "credits_restants": plans[pack_default]["credits"], "prix": plans[pack_default]["prix"],
+            "date_creation": datetime.now().isoformat(), "date_expiration": (datetime.now() + timedelta(days=90)).isoformat()
         }).execute()
-
         supabase.table("profiles").insert({
-            "id": user_id,
-            "cabinet_id": cab_id,
-            "nom": email.split('@')[0],
-            "role": "admin",
-            "plan": pack_default
+            "id": user_id, "cabinet_id": cab_id, "nom": email.split('@')[0], "role": "admin", "plan": pack_default
         }).execute()
     except Exception as e:
         st.error(f"Erreur création cabinet: {e}")
-    
+
     return cab_id
 
 def signup_user(nom, email, password, pays, plan):
@@ -113,19 +95,15 @@ def signup_user(nom, email, password, pays, plan):
         if not res_auth.user:
             st.error("Erreur de création de compte. Email déjà existant.")
             return False
-        
+
         user_id = res_auth.user.id
         cab_id = str(uuid.uuid4())
-
         supabase.table("cabinets").insert({
-            "id": cab_id, "nom": nom, "email": email, "pays": pays, "pack": plan,
-            "statut": "actif", "abonnement_actif": True,
+            "id": cab_id, "nom": nom, "email": email, "pays": pays, "pack": plan, "statut": "actif", "abonnement_actif": True,
             "limite_clients": plans[plan]["clients"], "limite_credits": plans[plan]["credits"],
             "credits_restants": plans[plan]["credits"], "prix": plans[plan]["prix"],
-            "date_creation": datetime.now().isoformat(),
-            "date_expiration": (datetime.now() + timedelta(days=90)).isoformat()
+            "date_creation": datetime.now().isoformat(), "date_expiration": (datetime.now() + timedelta(days=90)).isoformat()
         }).execute()
-
         supabase.table("profiles").insert({
             "id": user_id, "cabinet_id": cab_id, "nom": nom, "role": "admin", "plan": plan
         }).execute()
@@ -136,47 +114,36 @@ def signup_user(nom, email, password, pays, plan):
 
 def get_cabinet_data():
     user = st.session_state.get("user")
-    if not user:
-        return None
-
+    if not user: return None
     try:
         cabinet_id = ensure_profile_and_cabinet(user.id, user.email)
         profile = supabase.table("profiles").select("*").eq("id", user.id).execute()
         cabinet = supabase.table("cabinets").select("*").eq("id", cabinet_id).execute()
-        
         prof_data = profile.data[0] if profile.data else {"role": "admin"}
         cab_data = cabinet.data[0] if cabinet.data else None
-
-        if not cab_data:
-            return None
-            
+        if not cab_data: return None
         return {"user": user, "profile": prof_data, "cabinet": cab_data}
     except Exception as e:
         st.error(f"Erreur chargement données: {e}")
         return None
 
 def use_credits(cab_id, nb_factures):
-    """Décrémente les crédits et gère l'erreur proprement"""
     if not cab_id:
         st.error("Erreur: ID du cabinet introuvable")
         return False
-        
     try:
         cab = supabase.table("cabinets").select("credits_restants").eq("id", cab_id).single().execute()
         credits_actuels = cab.data["credits_restants"]
-        
         if credits_actuels < nb_factures:
             st.warning(f"Crédits insuffisants. Il vous reste {credits_actuels} crédits.")
             return False
-            
         nouveau_solde = credits_actuels - nb_factures
         supabase.table("cabinets").update({"credits_restants": nouveau_solde}).eq("id", cab_id).execute()
         return True
-        
     except Exception as e:
         st.error(f"Erreur mise à jour crédits: {e}")
         return False
-        
+
 # --- LOGIQUE MÉTIER TVA & AIB ---
 EXONERATIONS_TVA = ["produit pharmaceutique", "livre", "produit agricole non transformé", "éducation", "santé", "exportation", "location immobilière habitation"]
 TAUX_AIB = {"biens": 0.01, "travaux": 0.03, "prestation": 0.03, "prestation_intel": 0.05}
@@ -184,37 +151,27 @@ TAUX_AIB = {"biens": 0.01, "travaux": 0.03, "prestation": 0.03, "prestation_inte
 def analyser_eligibilite(data, seuil_aib):
     eligible_tva = "Oui"; eligible_aib = "Oui"; motif = []; tva_montant = data.get("tva", 0); aib_montant = 0; taux_aib_applique = 0
     ht = data.get("ht", 0); libelle = data.get("libelle", "").lower(); nifu = data.get("nifu", ""); type_op = data.get("type_operation", "biens").lower(); vendeur = data.get("fournisseur", "").lower(); n_facture = data.get("n_facture", "").lower()
-    
+
     if not nifu or nifu == "N/A":
-        eligible_tva = "Non"; eligible_aib = "Non"; motif.append("⚠️ Absence de N°IFU Art 227"); tva_montant = 0; aib_montant = 0; return eligible_tva, eligible_aib, " | ".join(motif), tva_montant, aib_montant, 0.0
-    
+        return "Non", "Non", "⚠️ Absence de N°IFU Art 227", 0, 0, 0.0
+
     if "sfe en ligne" in vendeur or "mec" in n_facture or data.get("aib_deja_retenu", False):
         eligible_aib = "Non"; motif.append("AIB déjà retenu à la source"); aib_montant = 0
     elif any(exo in libelle for exo in EXONERATIONS_TVA):
         eligible_tva = "Non"; motif.append("Exonéré TVA Art 229 CGI"); tva_montant = 0
-        
+
     if seuil_aib and ht < 10000 and eligible_aib == "Oui":
         eligible_aib = "Non"; motif.append("HT < 10 000 FCFA")
-        
-    if eligible_aib == "Oui":
-        if "intellectuelle" in type_op or any(x in libelle for x in ["avocat", "comptable", "consultant"]):
-            taux_aib_applique = TAUX_AIB["prestation_intel"]
-        elif "travaux" in type_op:
-            taux_aib_applique = TAUX_AIB["travaux"]
-        elif "prestation" in type_op or "service" in type_op:
-            taux_aib_applique = TAUX_AIB["prestation"]
-        else:
-            taux_aib_applique = TAUX_AIB["biens"]
-        aib_montant = ht * taux_aib_applique
-        
-    if not motif:
-        motif = ["Éligible"]
-        
-    return eligible_tva, eligible_aib, " | ".join(motif), tva_montant, aib_montant, taux_aib_applique * 100
 
-def sauver_factures_en_lot(liste_factures):
-    if liste_factures:
-        supabase.table('factures').insert(liste_factures).execute()
+    if eligible_aib == "Oui":
+        if "intellectuelle" in type_op or any(x in libelle for x in ["avocat", "comptable", "consultant"]): taux_aib_applique = TAUX_AIB["prestation_intel"]
+        elif "travaux" in type_op: taux_aib_applique = TAUX_AIB["travaux"]
+        elif "prestation" in type_op or "service" in type_op: taux_aib_applique = TAUX_AIB["prestation"]
+        else: taux_aib_applique = TAUX_AIB["biens"]
+        aib_montant = ht * taux_aib_applique
+
+    if not motif: motif = ["Éligible"]
+    return eligible_tva, eligible_aib, " | ".join(motif), tva_montant, aib_montant, taux_aib_applique * 100
 
 # --- PAGES ---
 def page_login_signup():
@@ -229,8 +186,7 @@ def page_login_signup():
         email = st.text_input("Email", key="login_email")
         password = st.text_input("Mot de passe", type="password", key="login_password")
         if st.button("Se connecter", type="primary", key="btn_login"):
-            if login(email, password):
-                st.rerun()
+            if login(email, password): st.rerun()
 
     with tab2:
         nom = st.text_input("Nom du Cabinet", key="signup_nom")
@@ -240,10 +196,8 @@ def page_login_signup():
         plan = st.selectbox("Choisis ton Pack", ["solo", "starter", "pro"])
         st.success(f"**Tarif Promo 3 mois: {plans[plan]['prix']:,} {plans[plan]['devise']}/mois**")
         st.caption(f"Inclus: {plans[plan]['clients']} clients, {plans[plan]['credits']} crédits")
-        st.caption("⚡ Après 3 mois : tarif normal s'appliquera")
         if st.button("Créer mon compte", key="btn_signup"):
-            if signup_user(nom, email, password, pays, plan):
-                st.success("Compte créé ! Connecte-toi maintenant.")
+            if signup_user(nom, email, password, pays, plan): st.success("Compte créé! Connecte-toi maintenant.")
 
 def page_app(cab_data):
     cab = cab_data["cabinet"]
@@ -251,8 +205,7 @@ def page_app(cab_data):
         st.title("🧾 One7 Pro")
         st.caption(f"Plan: {cab.get('pack', 'solo')} | {cab.get('pays', 'Bénin')}")
         st.metric("Crédits Restants", cab.get("credits_restants", 0))
-        if st.button("Se déconnecter", key="btn_logout"):
-            logout()
+        if st.button("Se déconnecter", key="btn_logout"): logout()
         menu = st.radio("Menu", ["📊 Traitement Factures", "📈 Dashboard", "👔 Admin"], key="menu_radio")
 
     if not cab.get("abonnement_actif", True):
@@ -272,90 +225,65 @@ def page_app(cab_data):
                 st.error(f"Crédits insuffisants. Il vous faut {len(fichiers)} crédit(s).")
                 return
 
-            resultats_detail, etat_tva, etat_aib, factures_a_sauver = [], [], [], []
+            resultats_detail, etat_tva, etat_aib, factures_a_sauver = [], []
             progress = st.progress(0)
-            
+
             for i, fichier in enumerate(fichiers):
-                file_bytes = fichier.read()
-                doc = fitz.open(stream=file_bytes, filetype="pdf")
-                texte_pdf = "".join([page.get_text() for page in doc])
-                
-                prompt = f"""Tu es un expert comptable au Bénin. Extrais en JSON strict uniquement: {{"n_facture": "", "date": "JJ/MM/AAAA", "fournisseur": "", "nifu": "", "libelle": "", "type_operation": "biens/travaux/prestation", "ht": 0, "tva": 0, "ttc": 0, "aib_deja_retenu": false}}. Texte: {texte_pdf}"""
-                response = model.generate_content(prompt)
-                
-                try:
-                    json_str = re.search(r'\{.*\}', response.text, re.DOTALL).group()
-                    data = json.loads(json_str)
-                except Exception:
-                    data = {"n_facture": fichier.name}
+                with st.spinner(f"Traitement de {fichier.name}..."):
+                    file_bytes = fichier.read()
+                    doc = fitz.open(stream=file_bytes, filetype="pdf")
+                    texte_pdf = "".join([page.get_text() for page in doc])
 
-                elig_tva, elig_aib, motif, tva_final, aib_final, taux_aib = analyser_eligibilite(data, SEUIL_AIB)
-                
-                uploaded_files = st.file_uploader("Charge tes factures PDF", type="pdf", accept_multiple_files=True)
+                    prompt = f"""Tu es un expert comptable au Bénin. Extrais en JSON strict uniquement: {{"n_facture": "", "date": "JJ/MM/AAAA", "fournisseur": "", "nifu": "", "libelle": "", "type_operation": "biens/travaux/prestation", "ht": 0, "tva": 0, "ttc": 0, "aib_deja_retenu": false}}. Texte: {texte_pdf}"""
+                    response = model.generate_content(prompt)
 
-        if st.button("🚀 Lancer le traitement"):
-            if not uploaded_files:
-                st.warning("Charge au moins 1 fichier")
-            else:
-                factures_a_inserer = []
-                for uploaded_file in uploaded_files:  # <-- IMPORTANT: uploaded_file pas file
-                    with st.spinner(f"Traitement de {uploaded_file.name}..."):
-                        data = extraire_donnees_facture(uploaded_file)
-                        
-                        factures_a_inserer.append({
-                            "cabinet_id": cab["id"],
-                            "nom_fichier": uploaded_file.name,  # <-- maintenant ça existe
-                            "fournisseur": data.get("FOURNISSEUR"),
-                            "num_facture": data.get("NUM_FACTURE"),
-                            "date_facture": data.get("DATE"),
-                            "montant_ht": data.get("MONTANT_HT"),
-                            "montant_tva": data.get("TVA"),
-                            "montant_ttc": data.get("TTC"),
-                            "aib": data.get("AIB")
-                        })
-                # Insert
-        supabase.table('factures').insert(factures_a_inserer).execute()
-        
-        # Décrement crédits
-        supabase.table('cabinets').update({"credits": cab["credits"] - 1}).eq("id", cab["id"]).execute()
-        
-        st.success("Traitement terminé !")
-        st.dataframe(factures_a_inserer)
-        
-        resultats_detail.append({
-            "Fichier": fichier.name, 
-            "N° Facture": data.get("n_facture"), 
-            "HT": data.get("ht"), 
-            "TVA 18%": tva_final, 
-            "AIB": aib_final, 
-            "Éligible TVA": elig_tva, 
-            "Éligible AIB": elig_aib, 
-            "Motif": motif
-        })
-        
-        if elig_tva == "Oui":
-            etat_tva.append({"NIFU_FOURNISSEUR": data.get("nifu"), "NUM_FACTURE": data.get("n_facture"), "MONTANT_HT": data.get("ht"), "MONTANT_TVA": tva_final})
-            if elig_aib == "Oui":
-                etat_aib.append({"NIFU_BENEFICIAIRE": data.get("nifu"), "NUM_FACTURE": data.get("n_facture"), "BASE_AIB": data.get("ht"), "TAUX_AIB": f"{taux_aib}%", "MONTANT_AIB": aib_final})
-                
-                progress.progress((i + 1) / len(fichiers))
+                    try:
+                        json_str = re.search(r'\{.*\}', response.text, re.DOTALL).group()
+                        data = json.loads(json_str)
+                    except Exception:
+                        data = {"n_facture": fichier.name, "ht": 0, "tva": 0, "ttc": 0}
 
+                    elig_tva, elig_aib, motif, tva_final, aib_final, taux_aib = analyser_eligibilite(data, SEUIL_AIB)
+
+                    # AJOUT POUR LA TABLE SUPABASE - NOMS CORRIGES
+                    factures_a_sauver.append({
+                        "cabinet_id": cab["id"],
+                        "nom_fichier": fichier.name,
+                        "fournisseur": data.get("fournisseur"),
+                        "num_facture": data.get("n_facture"),
+                        "date_facture": data.get("date"),
+                        "montant_ht": data.get("ht"),
+                        "montant_tva": tva_final,
+                        "montant_ttc": data.get("ttc"),
+                        "aib": aib_final
+                    })
+
+                    resultats_detail.append({
+                        "Fichier": fichier.name, "N° Facture": data.get("n_facture"), "HT": data.get("ht"),
+                        "TVA 18%": tva_final, "AIB": aib_final, "Éligible TVA": elig_tva, "Éligible AIB": elig_aib, "Motif": motif
+                    })
+
+                    if elig_tva == "Oui":
+                        etat_tva.append({"NIFU_FOURNISSEUR": data.get("nifu"), "NUM_FACTURE": data.get("n_facture"), "MONTANT_HT": data.get("ht"), "MONTANT_TVA": tva_final})
+                    if elig_aib == "Oui":
+                        etat_aib.append({"NIFU_BENEFICIAIRE": data.get("nifu"), "NUM_FACTURE": data.get("n_facture"), "BASE_AIB": data.get("ht"), "TAUX_AIB": f"{taux_aib}%", "MONTANT_AIB": aib_final})
+
+                    progress.progress((i + 1) / len(fichiers))
+
+            # SAUVEGARDE EN LOT APRES LA BOUCLE
             sauver_factures_en_lot(factures_a_sauver)
-            st.success(f"{len(fichiers)} facture(s) traitée(s) et sauvegardée(s) !")
-            
+            st.success(f"{len(fichiers)} facture(s) traitée(s) et sauvegardée(s)!")
+
             tab1, tab2, tab3 = st.tabs(["📊 Détail", "📑 État TVA", "📑 État AIB"])
-            with tab1:
-                st.dataframe(pd.DataFrame(resultats_detail), use_container_width=True, hide_index=True)
+            with tab1: st.dataframe(pd.DataFrame(resultats_detail), use_container_width=True, hide_index=True)
             with tab2:
                 df_tva = pd.DataFrame(etat_tva)
                 st.dataframe(df_tva, use_container_width=True, hide_index=True)
-                if not df_tva.empty:
-                    st.download_button("📥 État TVA CSV", df_tva.to_csv(index=False), f"ETAT_TVA_{datetime.now().strftime('%Y%m')}.csv", key="dl_tva")
+                if not df_tva.empty: st.download_button("📥 État TVA CSV", df_tva.to_csv(index=False), f"ETAT_TVA_{datetime.now().strftime('%Y%m')}.csv")
             with tab3:
                 df_aib = pd.DataFrame(etat_aib)
                 st.dataframe(df_aib, use_container_width=True, hide_index=True)
-                if not df_aib.empty:
-                    st.download_button("📥 État AIB CSV", df_aib.to_csv(index=False), f"ETAT_AIB_{datetime.now().strftime('%Y%m')}.csv", key="dl_aib")
+                if not df_aib.empty: st.download_button("📥 État AIB CSV", df_aib.to_csv(index=False), f"ETAT_AIB_{datetime.now().strftime('%Y%m')}.csv")
 
     elif menu == "👔 Admin" and cab_data["profile"].get("role") == "admin":
         st.title("Panel Admin")
@@ -367,16 +295,18 @@ def page_app(cab_data):
                     supabase.table("cabinets").update({"abonnement_actif": True}).eq("id", c['id']).execute()
                     st.rerun()
 
+def sauver_factures_en_lot(liste_factures):
+    if liste_factures:
+        supabase.table('factures').insert(liste_factures).execute()
+
 # --- ROUTEUR PRINCIPAL ---
 def main():
     if st.session_state["user"]:
         cab_data = get_cabinet_data()
-        if cab_data:
-            page_app(cab_data)
+        if cab_data: page_app(cab_data)
         else:
             st.error("Impossible d'accéder à votre cabinet.")
-            if st.button("Se déconnecter"):
-                logout()
+            if st.button("Se déconnecter"): logout()
     else:
         page_login_signup()
 
