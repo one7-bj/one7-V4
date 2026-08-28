@@ -296,14 +296,17 @@ def page_app(cab_data):
 
 # 6. ROUTEUR
 def main():
-    user_res = supabase.auth.get_user()
-    if not user_res or not user_res.user:
-        page_login_signup()
-    else:
+    user_res = supabase.auth.get_user() 
+    if user_res and user_res.user:
         cab_data = get_cabinet_data()
         if cab_data:
             page_app(cab_data)
-        else: # Sécurité
-            st.error("Erreur de chargement du cabinet")
+        else:
+            st.error("Erreur: Impossible de charger votre cabinet")
+            if st.button("Déconnexion"): 
+                supabase.auth.sign_out()
+                st.rerun()
+    else:
+        page_login_signup()
 
 if __name__ == "__main__": main()
