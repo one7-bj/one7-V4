@@ -291,7 +291,7 @@ def page_app(cab_data):
 
                 elig_tva, elig_aib, motif, tva_final, aib_final, taux_aib = analyser_eligibilite(data, SEUIL_AIB)
                 
-               factures_a_inserer.append({
+                factures_a_inserer.append({
                     "cabinet_id": cab["id"],
                     "nom_fichier": uploaded_file.name,
                     "fournisseur": data.get("FOURNISSEUR"),
