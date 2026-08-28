@@ -25,87 +25,96 @@ model = genai.GenerativeModel('gemini-1.5-flash')
 # 2. CSS GLOBAL : BLEU PRO #0056A6 + JAUNE #FFC107
 st.markdown("""
 <style>
-  .stButton>button[data-testid="baseButton-primary"] {background-color: #0056A6; color: white; border-radius: 8px; border: none; font-weight: 600;}
-  .stButton>button[data-testid="baseButton-primary"]:hover {background-color: #004080;}
-  .stButton>button[data-testid="baseButton-secondary"] {background-color: #FFC107; color: #1E293B; border-radius: 8px; border: none; font-weight: 700;}
+ .stButton>button[data-testid="baseButton-primary"] {background-color: #0056A6; color: white; border-radius: 8px; border: none; font-weight: 600;}
+ .stButton>button[data-testid="baseButton-primary"]:hover {background-color: #004080;}
+ .stButton>button[data-testid="baseButton-secondary"] {background-color: #FFC107; color: #1E293B; border-radius: 8px; border: none; font-weight: 700;}
     [data-testid="stSidebar"] {background-color: #0056A6;}
     [data-testid="stSidebar"] * {color: white;}
 </style>
 """, unsafe_allow_html=True)
 
-# 3. FONCTIONS FOND : MULTI-TENANT + CREDITS
+# 3. FONCTIONS FOND : MULTI-TENANT + CREDITS + ONBOARDING AUTO
+def ensure_profile_and_cabinet(user_id, email):
+    """CRÉE AUTO SI LE USER N'A PAS DE CABINET - POUR LES USERS CRÉÉS MANUELLEMENT"""
+    try:
+        profile_res = supabase.table("profiles").select("*").eq("id", user_id).single().execute()
+        if profile_res.data:
+            return profile_res.data["cabinet_id"]
+    except:
+        pass # pas de profile
+
+    st.info("Premier connexion détectée. Création de votre cabinet...")
+    # Créer cabinet
+    cab_id = str(uuid.uuid4())
+    supabase.table("cabinets").insert({
+        "id": cab_id,
+        "nom": f"Cabinet {email.split('@')[0].title()}",
+        "email": email,
+        "pays": "Bénin",
+        "pack": "solo",
+        "statut": "actif",
+        "abonnement_actif": True,
+        "limite_clients": plans["solo"]["clients"],
+        "limite_credits": plans["solo"]["credits"],
+        "credits_restants": plans["solo"]["credits"],
+        "prix": plans["solo"]["prix"],
+        "date_creation": datetime.now().isoformat(),
+        "date_expiration": (datetime.now() + timedelta(days=90)).isoformat()
+    }).execute()
+
+    # Créer profile
+    supabase.table("profiles").insert({
+        "id": user_id,
+        "cabinet_id": cab_id,
+        "nom": email.split('@')[0],
+        "role": "admin",
+        "plan": "solo"
+    }).execute()
+    return cab_id
+
 def signup_user(nom, email, password, pays, plan):
     try:
-        # 1. CRÉER USER DANS AUTH
         res_auth = supabase.auth.sign_up({"email": email, "password": password})
-        
         if not res_auth.user:
             st.error("Erreur création Auth. Vérifie si l'email n'existe pas déjà")
             return False
-            
         user = res_auth.user
-        
-        # 2. ON ATTEND QUE SUPABASE PROPAGUE LE USER - 2 FOIS
-        for i in range(3):
-            time.sleep(1)
-            check_user = supabase.auth.get_user()
-            if check_user.user:
-                break
-        
-        user_id = user.id # On prend l'ID direct de la réponse
+        time.sleep(2)
+        user_id = user.id
 
-        # 3. CRÉER CABINET D'ABORD
         cab_id = str(uuid.uuid4())
         supabase.table("cabinets").insert({
-            "id": cab_id, 
-            "nom": nom, 
-            "email": email,
-            "pays": pays, 
-            "pack": plan,
-            "statut": "actif",
-            "abonnement_actif": True,
-            "limite_clients": plans[plan]["clients"], 
-            "limite_credits": plans[plan]["credits"],
-            "credits_restants": plans[plan]["credits"],
-            "prix": plans[plan]["prix"],
+            "id": cab_id, "nom": nom, "email": email, "pays": pays, "pack": plan,
+            "statut": "actif", "abonnement_actif": True,
+            "limite_clients": plans[plan]["clients"], "limite_credits": plans[plan]["credits"],
+            "credits_restants": plans[plan]["credits"], "prix": plans[plan]["prix"],
             "date_creation": datetime.now().isoformat(),
             "date_expiration": (datetime.now() + timedelta(days=90)).isoformat()
         }).execute()
-        
-        # 4. CRÉER PROFILE EN DERNIER
+
         supabase.table("profiles").insert({
-            "id": user_id, # <- L'ID DE AUTH.USERS
-            "cabinet_id": cab_id, 
-            "nom": nom,
-            "role": "cabinet", 
-            "plan": plan
+            "id": user_id, "cabinet_id": cab_id, "nom": nom, "role": "admin", "plan": plan
         }).execute()
-        
         return True
-        
     except Exception as e:
         st.error(f"Erreur: {e}")
         return False
-        
+
 def login(email, password):
     try: return supabase.auth.sign_in_with_password({"email": email, "password": password})
     except: return None
 
 def get_cabinet_data():
-    user = supabase.auth.get_user()
-    
-    # CORRECTION ICI
-    if not user or not user.user: 
+    user_res = supabase.auth.get_user()
+    if not user_res or not user_res.user:
         return None
-        
-    profile = supabase.table("profiles").select("cabinet_id, role").eq("id", user.user.id).single().execute()
-    
-    # Sécurité au cas où le profil n'existe pas
-    if not profile.data:
-        return None
-        
-    cabinet = supabase.table("cabinets").select("*").eq("id", profile.data["cabinet_id"]).single().execute()
-    return {"user": user.user, "profile": profile.data, "cabinet": cabinet.data}
+
+    # PATCH ICI : ON CRÉE SI N'EXISTE PAS
+    cabinet_id = ensure_profile_and_cabinet(user_res.user.id, user_res.user.email)
+
+    profile = supabase.table("profiles").select("cabinet_id, role").eq("id", user_res.user.id).single().execute()
+    cabinet = supabase.table("cabinets").select("*").eq("id", cabinet_id).single().execute()
+    return {"user": user_res.user, "profile": profile.data, "cabinet": cabinet.data}
 
 def use_credits(cab_id, nb):
     cab = supabase.table("cabinets").select("credits_restants").eq("id", cab_id).single().execute()
@@ -142,35 +151,20 @@ def sauver_factures_en_lot(liste_factures):
     if liste_factures: supabase.table('factures').insert(liste_factures).execute()
 
 # 5. PAGES
-st.markdown("## 🚀 OFFRE DE LANCEMENT - 3 PREMIERS MOIS")
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.markdown("### Solo")
-    st.markdown("**2000 FCFA/mois**")
-    st.write("20 clients")
-    st.write("50 crédits")
-
-with col2:
-    st.markdown("### Starter")
-    st.markdown("**5000 FCFA/mois**")
-    st.write("50 clients")
-    st.write("100 crédits")
-
-with col3:
-    st.markdown("### Pro")
-    st.markdown("**10000 FCFA/mois**")
-    st.write("200 clients")
-    st.write("500 crédits")
-  
 def page_login_signup():
+    st.markdown("## 🚀 OFFRE DE LANCEMENT - 3 PREMIERS MOIS")
+    col1, col2, col3 = st.columns(3)
+    with col1: st.markdown("### Solo"); st.markdown("**2000 FCFA/mois**"); st.write("20 clients"); st.write("50 crédits")
+    with col2: st.markdown("### Starter"); st.markdown("**5000 FCFA/mois**"); st.write("50 clients"); st.write("100 crédits")
+    with col3: st.markdown("### Pro"); st.markdown("**10000 FCFA/mois**"); st.write("200 clients"); st.write("500 crédits")
+
     tab1, tab2 = st.tabs(["Connexion", "Créer un compte"])
     with tab1:
         email = st.text_input("Email", key="login_email")
         password = st.text_input("Mot de passe", type="password", key="login_password")
         if st.button("Se connecter", type="primary", key="btn_login"):
-            if login(email, password): # <- enleve le _user
-                st.session_state.user = True # <- ajoute ça pour garder la session
+            if login(email, password):
+                st.session_state.user = True
                 st.rerun()
             else:
                 st.error("Identifiants incorrects")
@@ -185,14 +179,14 @@ def page_login_signup():
         st.caption(f"Inclus: {plans[plan]['clients']} clients, {plans[plan]['credits']} crédits")
         st.caption("⚡ Après 3 mois : tarif normal s'appliquera")
         if st.button("Créer mon compte", key="btn_signup"):
-            if signup_user(nom, email, password, pays, plan): 
-                st.success("Compte créé! Paiement simulé. Attends l'activation de l'admin.")
-            
+            if signup_user(nom, email, password, pays, plan):
+                st.success("Compte créé! Connecte-toi maintenant.")
+
 def page_app(cab_data):
     cab = cab_data["cabinet"]
     with st.sidebar:
         st.title("🧾 One7 Pro")
-        st.caption(f"Plan: {cab['plan']} | {cab['pays']}")
+        st.caption(f"Plan: {cab['pack']} | {cab['pays']}")
         st.metric("Crédits Restants", cab["credits_restants"])
         if st.button("Se déconnecter", key="btn_logout"): supabase.auth.sign_out(); del st.session_state.user; st.rerun()
         menu = st.radio("Menu", ["📊 Traitement Factures", "📈 Dashboard", "👔 Admin"], key="menu_radio")
@@ -209,7 +203,7 @@ def page_app(cab_data):
             if not fichiers: st.warning("Ajoute des fichiers"); return
             if not use_credits(cab["id"], len(fichiers)): st.error(f"Crédits insuffisants. Il faut {len(fichiers)}"); st.rerun(); return
 
-            resultats_detail, etat_tva, etat_aib, factures_a_sauver = [], [], [], []
+            resultats_detail, etat_tva, etat_aib, factures_a_sauver = [], []
             progress = st.progress(0)
             for i, fichier in enumerate(fichiers):
                 file_bytes = fichier.read()
@@ -245,9 +239,14 @@ def page_app(cab_data):
 
 # 6. ROUTEUR
 def main():
-    if 'user' not in st.session_state: page_login_signup()
+    user_res = supabase.auth.get_user()
+    if not user_res or not user_res.user:
+        page_login_signup()
     else:
         cab_data = get_cabinet_data()
-        if cab_data: page_app(cab_data)
+        if cab_data:
+            page_app(cab_data)
+        else: # Sécurité
+            st.error("Erreur de chargement du cabinet")
 
 if __name__ == "__main__": main()
