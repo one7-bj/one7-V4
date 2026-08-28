@@ -36,7 +36,7 @@ st.markdown("""
     [data-testid="stSidebar"] {background-color: #0056A6;}
     [data-testid="stSidebar"] * {color: white;}
 </style>
-""", unsafe_auth_html=True)
+""", unsafe_allow_html=True)
 
 # --- FONCTIONS AUTH & GESTION MULTI-TENANT ---
 def ensure_profile_and_cabinet(user_id, email):
