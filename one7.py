@@ -293,7 +293,7 @@ def page_app(cab_data):
                 
                 factures_a_sauver.append({
                     "cabinet_id": cab["id"],
-                    "nom_fichier": uploaded_file.name,
+                    "nom_fichier": fichier.name,
                     "fournisseur": data.get("FOURNISSEUR"),
                     "num_facture": data.get("NUM_FACTURE"),
                     "date_facture": data.get("DATE"),
