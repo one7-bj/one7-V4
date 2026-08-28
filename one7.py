@@ -24,7 +24,7 @@ try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
     model = genai.GenerativeModel('gemini-1.5-flash')
 except Exception as e:
-    st.error(f"Erreur de configuration des secrets ou d'initialisation : {e}")
+    st.error(f"Erreur de configuration des secrets : {e}")
     st.stop()
 
 # --- CSS GLOBAL ---
@@ -38,44 +38,72 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- FONCTIONS AUTH & GESTION MULTI-TENANT ---
+# --- GESTION DE LA SESSION ---
+if "user" not in st.session_state:
+    st.session_state["user"] = None
+
+def login(email, password):
+    try:
+        res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+        if res.user:
+            st.session_state["user"] = res.user
+            return True
+        else:
+            st.error("Identifiants incorrects.")
+            return False
+    except Exception as e:
+        st.error(f"Erreur d'authentification : {e}")
+        return False
+
+def logout():
+    try:
+        supabase.auth.sign_out()
+    except:
+        pass
+    st.session_state["user"] = None
+    st.rerun()
+
 def ensure_profile_and_cabinet(user_id, email):
     """Vérifie ou crée automatiquement un cabinet pour l'utilisateur"""
     try:
         profile_res = supabase.table("profiles").select("*").eq("id", user_id).execute()
-        if profile_res.data:
+        if profile_res.data and len(profile_res.data) > 0:
             return profile_res.data[0]["cabinet_id"]
     except Exception as e:
-        st.warning(f"Recherche de profil : {e}")
+        st.warning(f"Erreur lecture profil: {e}")
 
-    st.info("Première connexion détectée. Création de votre cabinet...")
+    # Création secours si profil introuvable
+    st.info("Configuration du cabinet en cours...")
     cab_id = str(uuid.uuid4())
     pack_default = "solo"
     
-    supabase.table("cabinets").insert({
-        "id": cab_id,
-        "nom": f"Cabinet {email.split('@')[0].title()}",
-        "email": email,
-        "pays": "Bénin",
-        "pack": pack_default,
-        "plan": pack_default,
-        "statut": "actif",
-        "abonnement_actif": True,
-        "limite_clients": plans[pack_default]["clients"],
-        "limite_credits": plans[pack_default]["credits"],
-        "credits_restants": plans[pack_default]["credits"],
-        "prix": plans[pack_default]["prix"],
-        "date_creation": datetime.now().isoformat(),
-        "date_expiration": (datetime.now() + timedelta(days=90)).isoformat()
-    }).execute()
+    try:
+        supabase.table("cabinets").insert({
+            "id": cab_id,
+            "nom": f"Cabinet {email.split('@')[0].title()}",
+            "email": email,
+            "pays": "Bénin",
+            "pack": pack_default,
+            "plan": pack_default,
+            "statut": "actif",
+            "abonnement_actif": True,
+            "limite_clients": plans[pack_default]["clients"],
+            "limite_credits": plans[pack_default]["credits"],
+            "credits_restants": plans[pack_default]["credits"],
+            "prix": plans[pack_default]["prix"],
+            "date_creation": datetime.now().isoformat(),
+            "date_expiration": (datetime.now() + timedelta(days=90)).isoformat()
+        }).execute()
 
-    supabase.table("profiles").insert({
-        "id": user_id,
-        "cabinet_id": cab_id,
-        "nom": email.split('@')[0],
-        "role": "admin",
-        "plan": pack_default
-    }).execute()
+        supabase.table("profiles").insert({
+            "id": user_id,
+            "cabinet_id": cab_id,
+            "nom": email.split('@')[0],
+            "role": "admin",
+            "plan": pack_default
+        }).execute()
+    except Exception as e:
+        st.error(f"Erreur création cabinet: {e}")
     
     return cab_id
 
@@ -83,13 +111,12 @@ def signup_user(nom, email, password, pays, plan):
     try:
         res_auth = supabase.auth.sign_up({"email": email, "password": password})
         if not res_auth.user:
-            st.error("Erreur de création de compte. L'email est peut-être déjà utilisé.")
+            st.error("Erreur de création de compte. Email déjà existant.")
             return False
         
         user_id = res_auth.user.id
-        time.sleep(1)
-
         cab_id = str(uuid.uuid4())
+
         supabase.table("cabinets").insert({
             "id": cab_id, "nom": nom, "email": email, "pays": pays, "pack": plan,
             "statut": "actif", "abonnement_actif": True,
@@ -107,40 +134,36 @@ def signup_user(nom, email, password, pays, plan):
         st.error(f"Erreur d'inscription : {e}")
         return False
 
-def login(email, password):
-    try:
-        return supabase.auth.sign_in_with_password({"email": email, "password": password})
-    except Exception as e:
-        st.error(f"Erreur d'authentification : {e}")
+def get_cabinet_data():
+    user = st.session_state.get("user")
+    if not user:
         return None
 
-def get_cabinet_data():
     try:
-        session = supabase.auth.get_session()
-        if not session or not session.user:
-            return None
-
-        user = session.user
         cabinet_id = ensure_profile_and_cabinet(user.id, user.email)
-
-        profile = supabase.table("profiles").select("cabinet_id, role").eq("id", user.id).single().execute()
-        cabinet = supabase.table("cabinets").select("*").eq("id", cabinet_id).single().execute()
+        profile = supabase.table("profiles").select("*").eq("id", user.id).execute()
+        cabinet = supabase.table("cabinets").select("*").eq("id", cabinet_id).execute()
         
-        if not cabinet.data:
+        prof_data = profile.data[0] if profile.data else {"role": "admin"}
+        cab_data = cabinet.data[0] if cabinet.data else None
+
+        if not cab_data:
             return None
             
-        return {"user": user, "profile": profile.data, "cabinet": cabinet.data}
-    except Exception:
+        return {"user": user, "profile": prof_data, "cabinet": cab_data}
+    except Exception as e:
+        st.error(f"Erreur chargement données: {e}")
         return None
 
 def use_credits(cab_id, nb):
-    cab = supabase.table("cabinets").select("credits_restants").eq("id", cab_id).single().execute()
-    if cab.data and cab.data["credits_restants"] >= nb:
-        supabase.table("cabinets").update({"credits_restants": cab.data["credits_restants"] - nb}).eq("id", cab_id).execute()
+    cab = supabase.table("cabinets").select("credits_restants").eq("id", cab_id).execute()
+    if cab.data and cab.data[0]["credits_restants"] >= nb:
+        nouveau_solde = cab.data[0]["credits_restants"] - nb
+        supabase.table("cabinets").update({"credits_restants": nouveau_solde}).eq("id", cab_id).execute()
         return True
     return False
 
-# --- LOGIQUE MÉTIER (TVA & AIB) ---
+# --- LOGIQUE MÉTIER TVA & AIB ---
 EXONERATIONS_TVA = ["produit pharmaceutique", "livre", "produit agricole non transformé", "éducation", "santé", "exportation", "location immobilière habitation"]
 TAUX_AIB = {"biens": 0.01, "travaux": 0.03, "prestation": 0.03, "prestation_intel": 0.05}
 
@@ -212,14 +235,13 @@ def page_app(cab_data):
     cab = cab_data["cabinet"]
     with st.sidebar:
         st.title("🧾 One7 Pro")
-        st.caption(f"Plan: {cab['pack']} | {cab['pays']}")
-        st.metric("Crédits Restants", cab["credits_restants"])
+        st.caption(f"Plan: {cab.get('pack', 'solo')} | {cab.get('pays', 'Bénin')}")
+        st.metric("Crédits Restants", cab.get("credits_restants", 0))
         if st.button("Se déconnecter", key="btn_logout"):
-            supabase.auth.sign_out()
-            st.rerun()
+            logout()
         menu = st.radio("Menu", ["📊 Traitement Factures", "📈 Dashboard", "👔 Admin"], key="menu_radio")
 
-    if not cab["abonnement_actif"]:
+    if not cab.get("abonnement_actif", True):
         st.warning("Votre abonnement n'est pas actif. Contactez l'admin.")
         return
 
@@ -285,7 +307,7 @@ def page_app(cab_data):
                 progress.progress((i + 1) / len(fichiers))
 
             sauver_factures_en_lot(factures_a_sauver)
-            st.success(f"{len(fichiers)} facture(s) traitée(s) et sauvegardée(s) ! (-{len(fichiers)} crédits)")
+            st.success(f"{len(fichiers)} facture(s) traitée(s) et sauvegardée(s) !")
             
             tab1, tab2, tab3 = st.tabs(["📊 Détail", "📑 État TVA", "📑 État AIB"])
             with tab1:
@@ -301,7 +323,7 @@ def page_app(cab_data):
                 if not df_aib.empty:
                     st.download_button("📥 État AIB CSV", df_aib.to_csv(index=False), f"ETAT_AIB_{datetime.now().strftime('%Y%m')}.csv", key="dl_aib")
 
-    elif menu == "👔 Admin" and cab_data["profile"]["role"] == "admin":
+    elif menu == "👔 Admin" and cab_data["profile"].get("role") == "admin":
         st.title("Panel Admin")
         cabinets = supabase.table("cabinets").select("*").execute()
         for c in cabinets.data:
@@ -313,9 +335,14 @@ def page_app(cab_data):
 
 # --- ROUTEUR PRINCIPAL ---
 def main():
-    cab_data = get_cabinet_data()
-    if cab_data:
-        page_app(cab_data)
+    if st.session_state["user"]:
+        cab_data = get_cabinet_data()
+        if cab_data:
+            page_app(cab_data)
+        else:
+            st.error("Impossible d'accéder à votre cabinet.")
+            if st.button("Se déconnecter"):
+                logout()
     else:
         page_login_signup()
 
