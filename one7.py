@@ -161,16 +161,18 @@ def get_cabinet_data():
     return {"user": user_res.user, "profile": profile.data, "cabinet": cabinet.data}
 
 def main():
-    user_res = supabase.auth.get_user() # On check direct supabase, pas session_state
-    if not user_res or not user_res.user:
-        page_login_signup()
-    else:
+    user_res = supabase.auth.get_user() 
+    if user_res and user_res.user:
         cab_data = get_cabinet_data()
         if cab_data:
             page_app(cab_data)
         else:
             st.error("Erreur: Impossible de charger votre cabinet")
-            if st.button("Déconnexion"): supabase.auth.sign_out(); st.rerun()
+            if st.button("Déconnexion"): 
+                supabase.auth.sign_out()
+                st.rerun()
+    else:
+        page_login_signup()
                 
 def use_credits(cab_id, nb):
     cab = supabase.table("cabinets").select("credits_restants").eq("id", cab_id).single().execute()
