@@ -322,16 +322,16 @@ def page_app(cab_data):
         st.success("Traitement terminé !")
         st.dataframe(factures_a_inserer)
                 
-                resultats_detail.append({
-                    "Fichier": fichier.name, 
-                    "N° Facture": data.get("n_facture"), 
-                    "HT": data.get("ht"), 
-                    "TVA 18%": tva_final, 
-                    "AIB": aib_final, 
-                    "Éligible TVA": elig_tva, 
-                    "Éligible AIB": elig_aib, 
-                    "Motif": motif
-                })
+                        resultats_detail.append({
+                            "Fichier": fichier.name, 
+                            "N° Facture": data.get("n_facture"), 
+                            "HT": data.get("ht"), 
+                            "TVA 18%": tva_final, 
+                            "AIB": aib_final, 
+                            "Éligible TVA": elig_tva, 
+                            "Éligible AIB": elig_aib, 
+                            "Motif": motif
+                        })
                 
                 if elig_tva == "Oui":
                     etat_tva.append({"NIFU_FOURNISSEUR": data.get("nifu"), "NUM_FACTURE": data.get("n_facture"), "MONTANT_HT": data.get("ht"), "MONTANT_TVA": tva_final})
