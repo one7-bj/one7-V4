@@ -332,11 +332,11 @@ def page_app(cab_data):
             "Éligible AIB": elig_aib, 
             "Motif": motif
         })
-                
-                if elig_tva == "Oui":
-                    etat_tva.append({"NIFU_FOURNISSEUR": data.get("nifu"), "NUM_FACTURE": data.get("n_facture"), "MONTANT_HT": data.get("ht"), "MONTANT_TVA": tva_final})
-                if elig_aib == "Oui":
-                    etat_aib.append({"NIFU_BENEFICIAIRE": data.get("nifu"), "NUM_FACTURE": data.get("n_facture"), "BASE_AIB": data.get("ht"), "TAUX_AIB": f"{taux_aib}%", "MONTANT_AIB": aib_final})
+        
+        if elig_tva == "Oui":
+            etat_tva.append({"NIFU_FOURNISSEUR": data.get("nifu"), "NUM_FACTURE": data.get("n_facture"), "MONTANT_HT": data.get("ht"), "MONTANT_TVA": tva_final})
+            if elig_aib == "Oui":
+                etat_aib.append({"NIFU_BENEFICIAIRE": data.get("nifu"), "NUM_FACTURE": data.get("n_facture"), "BASE_AIB": data.get("ht"), "TAUX_AIB": f"{taux_aib}%", "MONTANT_AIB": aib_final})
                 
                 progress.progress((i + 1) / len(fichiers))
 
