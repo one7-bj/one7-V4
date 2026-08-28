@@ -225,7 +225,7 @@ def page_app(cab_data):
                 st.error(f"Crédits insuffisants. Il vous faut {len(fichiers)} crédit(s).")
                 return
 
-            resultats_detail, etat_tva, etat_aib, factures_a_sauver = [], [], []
+            resultats_detail, etat_tva, etat_aib, factures_a_sauver = [], [], [], []
             progress = st.progress(0)
 
             for i, fichier in enumerate(fichiers):
