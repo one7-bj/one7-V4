@@ -104,18 +104,74 @@ def login(email, password):
     try: return supabase.auth.sign_in_with_password({"email": email, "password": password})
     except: return None
 
+def ensure_profile_and_cabinet(user_id, email):
+    """CRÉE AUTO SI LE USER N'A PAS DE CABINET"""
+    try:
+        profile_res = supabase.table("profiles").select("*").eq("id", user_id).single().execute()
+        if profile_res.data:
+            return profile_res.data["cabinet_id"]
+    except:
+        pass # pas de profile
+
+    st.info("Première connexion détectée. Création de votre cabinet...")
+
+    # Créer cabinet
+    cab_id = str(uuid.uuid4())
+    supabase.table("cabinets").insert({
+        "id": cab_id,
+        "nom": f"Cabinet {email.split('@')[0].title()}",
+        "email": email,
+        "pays": "Bénin",
+        "pack": "solo",
+        "plan": "solo",
+        "statut": "actif",
+        "abonnement_actif": True,
+        "limite_clients": 20,
+        "limite_credits": 50,
+        "credits_restants": 50,
+        "prix": 2000,
+        "date_creation": datetime.now().isoformat(),
+        "date_expiration": (datetime.now() + timedelta(days=90)).isoformat()
+    }).execute()
+
+    # Créer profile
+    supabase.table("profiles").insert({
+        "id": user_id,
+        "cabinet_id": cab_id,
+        "nom": email.split('@')[0],
+        "role": "admin",
+        "plan": "solo"
+    }).execute()
+    return cab_id
+
 def get_cabinet_data():
     user_res = supabase.auth.get_user()
     if not user_res or not user_res.user:
         return None
 
-    # PATCH ICI : ON CRÉE SI N'EXISTE PAS
+    # PATCH : CRÉE SI N'EXISTE PAS
     cabinet_id = ensure_profile_and_cabinet(user_res.user.id, user_res.user.email)
 
     profile = supabase.table("profiles").select("cabinet_id, role").eq("id", user_res.user.id).single().execute()
     cabinet = supabase.table("cabinets").select("*").eq("id", cabinet_id).single().execute()
+    
+    if not cabinet.data: # Sécurité
+        return None
+        
     return {"user": user_res.user, "profile": profile.data, "cabinet": cabinet.data}
 
+def main():
+    user_res = supabase.auth.get_user() # On check direct supabase, pas session_state
+    if not user_res or not user_res.user:
+        page_login_signup()
+    else:
+        cab_data = get_cabinet_data()
+        if cab_data:
+            page_app(cab_data)
+        else:
+            st.error("Erreur: Impossible de charger votre cabinet")
+            if st.button("Déconnexion"): supabase.auth.sign_out(); st.rerun()
+                
 def use_credits(cab_id, nb):
     cab = supabase.table("cabinets").select("credits_restants").eq("id", cab_id).single().execute()
     if cab.data["credits_restants"] >= nb:
