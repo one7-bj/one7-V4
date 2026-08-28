@@ -22,7 +22,7 @@ st.set_page_config(page_title="One7 Pro - TVA & AIB", page_icon="🧾", layout="
 try:
     supabase: Client = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-3.6-flash')
 except Exception as e:
     st.error(f"Erreur de configuration des secrets : {e}")
     st.stop()
