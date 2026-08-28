@@ -291,7 +291,7 @@ def page_app(cab_data):
 
                 elig_tva, elig_aib, motif, tva_final, aib_final, taux_aib = analyser_eligibilite(data, SEUIL_AIB)
                 
-              uploaded_files = st.file_uploader("Charge tes factures PDF", type="pdf", accept_multiple_files=True)
+                uploaded_files = st.file_uploader("Charge tes factures PDF", type="pdf", accept_multiple_files=True)
 
         if st.button("🚀 Lancer le traitement"):
             if not uploaded_files:
