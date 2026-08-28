@@ -155,14 +155,28 @@ def get_cabinet_data():
         st.error(f"Erreur chargement données: {e}")
         return None
 
-def use_credits(cab_id, nb):
-    cab = supabase.table("cabinets").select("credits_restants").eq("id", cab_id).execute()
-    if cab.data and cab.data[0]["credits_restants"] >= nb:
-        nouveau_solde = cab.data[0]["credits_restants"] - nb
+def use_credits(cab_id, nb_factures):
+    """Décrémente les crédits et gère l'erreur proprement"""
+    if not cab_id:
+        st.error("Erreur: ID du cabinet introuvable")
+        return False
+        
+    try:
+        cab = supabase.table("cabinets").select("credits_restants").eq("id", cab_id).single().execute()
+        credits_actuels = cab.data["credits_restants"]
+        
+        if credits_actuels < nb_factures:
+            st.warning(f"Crédits insuffisants. Il vous reste {credits_actuels} crédits.")
+            return False
+            
+        nouveau_solde = credits_actuels - nb_factures
         supabase.table("cabinets").update({"credits_restants": nouveau_solde}).eq("id", cab_id).execute()
         return True
-    return False
-
+        
+    except Exception as e:
+        st.error(f"Erreur mise à jour crédits: {e}")
+        return False
+        
 # --- LOGIQUE MÉTIER TVA & AIB ---
 EXONERATIONS_TVA = ["produit pharmaceutique", "livre", "produit agricole non transformé", "éducation", "santé", "exportation", "location immobilière habitation"]
 TAUX_AIB = {"biens": 0.01, "travaux": 0.03, "prestation": 0.03, "prestation_intel": 0.05}
