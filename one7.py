@@ -292,14 +292,15 @@ def page_app(cab_data):
                 elig_tva, elig_aib, motif, tva_final, aib_final, taux_aib = analyser_eligibilite(data, SEUIL_AIB)
                 
                 factures_a_sauver.append({
-                    "cabinet_id": cab["id"], 
-                    "numero_facture": data.get("n_facture"), 
-                    "fournisseur": data.get("fournisseur"), 
-                    "nif_fournisseur": data.get("nifu"), 
-                    "montant_ht": data.get("ht"), 
-                    "tva": tva_final, 
-                    "aib": aib_final, 
-                    "data_brute": data
+                    "cabinet_id": cab_id,
+                    "nom_fichier": uploaded_file.name,
+                    "fournisseur": data.get("FOURNISSEUR"),
+                    "num_facture": data.get("NUM_FACTURE"),
+                    "date_facture": data.get("DATE"),
+                    "montant_ht": data.get("MONTANT_HT"),
+                    "montant_tva": data.get("TVA"),
+                    "montant_ttc": data.get("TTC"),
+                    "aib": data.get("AIB")
                 })
                 
                 resultats_detail.append({
