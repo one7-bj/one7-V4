@@ -21,7 +21,7 @@ st.set_page_config(page_title="One7 Pro - TVA & AIB", page_icon="🧾", layout="
 try:
     supabase: Client = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    model = genai.GenerativeModel('gemini-2.0-flash') # Corrigé: gemini-3.6 n'existe pas encore
+    model = genai.GenerativeModel('gemini-3.6-flash') # Corrigé: gemini-3.6 n'existe pas encore
 except Exception as e:
     st.error(f"Erreur de configuration des secrets : {e}")
     st.stop()
@@ -225,7 +225,7 @@ def page_app(cab_data):
                 st.error(f"Crédits insuffisants. Il vous faut {len(fichiers)} crédit(s).")
                 return
 
-            resultats_detail, etat_tva, etat_aib, factures_a_sauver = [], []
+            resultats_detail, etat_tva, etat_aib, factures_a_sauver = [], [], []
             progress = st.progress(0)
 
             for i, fichier in enumerate(fichiers):
